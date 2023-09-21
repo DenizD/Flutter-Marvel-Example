@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
-import 'package:crypto/crypto.dart';
+import 'package:shimmer/shimmer.dart';
+import './details_screen.dart';
 import '../widgets/card_item.dart';
 import '../models/card_item_model.dart';
+import '../utils/constants.dart';
+import '../utils/utils.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -24,24 +25,18 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> fetchData() async {
-    String marvelPublicKey = dotenv.get('MARVEL_PUBLIC_KEY');
-    String marvelPrivateKey = dotenv.get('MARVEL_PRIVATE_KEY');
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final input = timestamp + marvelPrivateKey + marvelPublicKey;
-    final hash = md5.convert(utf8.encode(input)).toString();
+    isLoading = true;
+    setState(() {});
 
-    final apiUrl = Uri.https('gateway.marvel.com', '/v1/public/comics', {
-      'format': 'comic',
-      'apikey': marvelPublicKey,
-      'ts': timestamp,
-      'hash': hash,
-    });
-    final response = await http.get(apiUrl);
+    final response =
+        await fetchMarvelData(MARVEL_DEVELOPER_URL, MARVEL_COMICS_ENDPOINT);
 
     if (response.statusCode == 200) {
       final jsonData = json.decode(response.body);
       final results = jsonData['data']['results'];
       for (var data in results) {
+        int id = data['id'];
+        String name = data['series']['name'];
         String title = data['title'];
         String subtitle = "";
         String thumbnailUrl =
@@ -49,10 +44,18 @@ class _MainScreenState extends State<MainScreen> {
         if (!data['textObjects'].isEmpty) {
           subtitle = data['textObjects'][0]['text'];
         }
+        List<dynamic> characterItems = data['characters']['items'];
+        List<String> characters = characterItems
+            .map((character) => character['name'].toString())
+            .toList();
+
         CardItemModel cardItemModel = CardItemModel(
+          id: id,
+          name: name,
           title: title,
           subtitle: subtitle,
           thumbnailUrl: thumbnailUrl,
+          characters: characters,
         );
         cardItems.add(cardItemModel);
       }
@@ -68,20 +71,56 @@ class _MainScreenState extends State<MainScreen> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Marvel Characters'),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-            ),
-            itemCount: cardItems.length,
-            itemBuilder: (context, index) {
-              return CardItem(cardItem: cardItems[index]);
-            },
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('Marvel Comics'),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  fetchData();
+                },
+              ),
+            ],
           ),
         ),
+        body: isLoading
+            ? Shimmer.fromColors(
+                baseColor: Colors.red,
+                highlightColor: Colors.yellow,
+                child: const Center(
+                  child: Text(
+                    'LOADING',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 40.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                  ),
+                  itemCount: cardItems.length,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                DetailsScreen(cardItem: cardItems[index]),
+                          ),
+                        );
+                      },
+                      child: CardItem(cardItem: cardItems[index]),
+                    );
+                  },
+                ),
+              ),
       ),
     );
   }

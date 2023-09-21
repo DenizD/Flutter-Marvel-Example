@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
+import '../widgets/detailed_card_item.dart';
+import '../models/card_item_model.dart';
 
 class DetailsScreen extends StatefulWidget {
-  const DetailsScreen({super.key});
+  final CardItemModel cardItem;
+
+  const DetailsScreen({super.key, required this.cardItem});
 
   @override
   State<DetailsScreen> createState() => _DetailsScreenState();
 }
 
 class _DetailsScreenState extends State<DetailsScreen> {
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Details Screen'),
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.cardItem.name),
+      ),
+      body: Center(
+        child: CardItem(cardItem: widget.cardItem),
       ),
     );
   }
